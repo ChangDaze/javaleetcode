@@ -62,10 +62,39 @@
   ```
 - **The "Contiguous Pair Enter Key" Intuition**:
   - Look at which physical fork each philosopher tries to acquire **first**:
-    - **Pair `(P0, P1)`**: `P0` (even, left first) wants **`fork1`**; `P1` (odd, right first) also wants **`fork1`**. Thus **`fork1` is the shared "enter key"** for `{P0, P1}`! Only 1 of them can win `fork1`; the loser blocks while holding **0 forks**, leaving their other fork on the table for neighbors.
-    - **Pair `(P2, P3)`**: `P2` (even, left first) wants **`fork3`**; `P3` (odd, right first) also wants **`fork3`**. Thus **`fork3` is the shared "enter key"** for `{P2, P3}`!
-    - **`P4` (even)**: wants **`fork0`** first.
-  - Because all 5 philosophers only compete for **3 distinct first forks (`fork1`, `fork3`, `fork0`)**, at most **3 philosophers** can hold a first fork simultaneously, guaranteeing no circular wait can ever form!
+    - **Group 1 `{P0, P1}`**: `P0` (even, left first) wants **`fork1`**; `P1` (odd, right first) also wants **`fork1`**. Thus **`fork1` is the shared "enter key"** for `{P0, P1}`! Only 1 of them can win `fork1`; the loser blocks while holding **0 forks**, leaving their other fork on the table for neighbors.
+    - **Group 2 `{P2, P3}`**: `P2` (even, left first) wants **`fork3`**; `P3` (odd, right first) also wants **`fork3`**. Thus **`fork3` is the shared "enter key"** for `{P2, P3}`!
+    - **Group 3 `{P4}`**: `P4` (even, left first) wants **`fork0`** first.
+  - Because all 5 philosophers only compete for **3 distinct first forks (`fork1`, `fork3`, `fork0`)**, at most **3 philosophers** (1 from each group) can hold a first fork simultaneously, while the 2 losers from Group 1 and Group 2 hold **0 forks**.
+- **Why `P4` Being a "Group of 1" (`{P4}`) Still Guarantees No Deadlock**:
+  - Suppose `P4` immediately grabs its 1st fork (`fork0`) and now waits for its 2nd fork (`fork4`).
+  - Who is the **only** other philosopher that ever uses `fork4`? **`P3`** (from Group 2 `{P2, P3}`), whose 1st fork is `fork3` and 2nd fork is `fork4`:
+    1. **Case A (`P2` wins `fork3`, `P3` loses)**: Since `P3` is blocked on `fork3`, `P3` never touches `fork4`. Thus `fork4` is completely free on the table, so `P4` immediately acquires `fork4`, eats, and releases both forks!
+    2. **Case B (`P3` wins `fork3`, `P2` loses)**: Even if `P3` grabs `fork4` before `P4`, `P3` now holds **both** of its required forks (`fork3` and `fork4`)! So `P3` immediately eats, releases `fork4`, and `P4` eats next!
+- **Graph Theory Perspective (DAG vs. Cycle When Resources Are Limited)**:
+  - **Core Rule**: *"A **DAG** (Directed Acyclic Graph) guarantees no deadlock, whereas a **cycle** means it *can* deadlock when resources are limited."*
+  - In graph theory, a deadlock is a **directed cycle** ($A \rightarrow B \rightarrow C \rightarrow D \rightarrow E \rightarrow A$) where every arrow means *"holds 1st fork and waits for 2nd fork"*:
+    ```text
+    All Left-Then-Right (Cycle = Can Deadlock When All 5 Forks Are Exhausted!):
+    fork1 -> fork2 -> fork3 -> fork4 -> fork0 -> fork1  (Closed loop!)
+
+    Even/Odd Asymmetric Order (DAG = No Cycle Possible!):
+    P0: fork1 -> fork0
+    P1: fork1 -> fork2
+    P2: fork3 -> fork2
+    P3: fork3 -> fork4
+    P4: fork0 -> fork4
+    ```
+  - **1. Why a DAG Guarantees 100% Deadlock Freedom (`DiningPhilosophers3`)**:
+    - In the Even/Odd graph, arrows only flow from `{fork1, fork3}` $\rightarrow$ `{fork2, fork0}` $\rightarrow$ `{fork4}`.
+    - **`fork4` and `fork2` are "sink" (dead-end) nodes with 0 outgoing arrows**—no one ever holds `fork4` or `fork2` as their 1st fork while waiting for another fork!
+    - Whoever acquires a sink resource (`fork4` or `fork2`) is acquiring their **2nd fork**, meaning they are guaranteed to finish eating and release both locks, unblocking everyone behind them like dominoes.
+  - **2. Why a Cycle *Can* Deadlock Only When Resources Are Exhausted (`DiningPhilosophers2`)**:
+    - Having a cycle does **not** mean it deadlocks every time—if only 1 or 2 philosophers are hungry, even the cyclic Left-then-Right rule works fine.
+    - A cycle only deadlocks when **contention hits the resource limit** (all 5 philosophers arrive simultaneously and exhaust all 5 forks on their 1st grab).
+    - **How `DiningPhilosophers2` and `DiningPhilosophers3` Prove Both Halves of This Rule**:
+      - **`DiningPhilosophers2` (`tableLimit = new Semaphore(4)`)**: Keeps the **Cycle** (everyone picks Left then Right), *but* prevents the 5 forks from ever being 100% exhausted by 1st-fork grabs (capping active diners at 4 for 5 forks).
+      - **`DiningPhilosophers3` (Odd/Even Asymmetry)**: Breaks the cycle into a **DAG**, making deadlock structurally impossible even when all 5 philosophers compete at once!
 
 #### D. Bonus Approach: Atomic Fork Acquisition (`ReentrantLock` / `synchronized`)
 - Instead of limiting diners or alternating lock order, we can break **Hold-and-Wait** by requiring a philosopher to acquire a brief "pick-up mutex" while grabbing both forks:
