@@ -117,8 +117,7 @@ public class p0994_rotting_oranges {
                     queue.offer(cell);
 
                 }
-
-                if(grid[i][j] == 1) {
+                else if(grid[i][j] == 1) {
                     freshCount++;
                 }
             }
